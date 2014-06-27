@@ -1,0 +1,5 @@
+name = "Highcharts Pane"
+description = "Provides a panel pane to create a chart using the Highcharts library"
+core = 7.x
+dependencies[] = ctools
+dependencies[] = libraries

@@ -1,0 +1,20 @@
+<?php
+
+function highcharts_pane_ctools_plugin_directory($owner, $plugin_type) {
+  if ($owner == 'ctools' && ($plugin_type == 'content_types')) {
+    return 'plugins/' . $plugin_type;
+  }
+}
+
+function highcharts_pane_libraries_info() {
+	$libraries["highcharts"] = array(
+		"name" => "Highcharts",
+		"vendor url" => "http://www.highcharts.com",
+		"download url" => "http://www.highcharts.com/download",
+		"version" => 2.3,
+		"files" => array(
+			'js' => array("js/highcharts.js"),
+		),
+	);
+	return $libraries;
+}
