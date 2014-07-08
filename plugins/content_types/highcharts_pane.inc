@@ -22,7 +22,6 @@ function highcharts_pane_edit_form($form, &$form_state) {
 
 	form_load_include($form_state, "inc", "highcharts_pane", "plugins/content_types/highcharts_pane");
 	$conf = $form_state['conf'];
-	dpm($conf);
 	$form["chart_title"] = array(
 		'#type' => 'textfield',
 	    '#title' => t('Chart Title'),
@@ -37,16 +36,16 @@ function highcharts_pane_edit_form($form, &$form_state) {
 		"#options" => array(
 			"Bar" => "Bar",
 			"Line" => "Line",
+			"Column" => "Column",
 			"Pie" => "Pie",
 		),
 		"#default_value" => isset($conf["chart_type"]) ? $conf["chart_type"] : '',
 	);
 
-	$form["x_axis"] = array(
+	$form["subtitle"] = array(
 		"#type" => "textfield",
-		"#title" => t("X-Axis Label"),
-		"#description" => t("Label of X-Axis"),
-		"#default_value" => isset($conf["x_axis"]) ? $conf["x_axis"] : '',
+		"#title" => t("Chart Subtitle"),
+		"#default_value" => isset($conf["subtitle"]) ? $conf["subtitle"] : '',
 	);
 	$form["y_axis"] = array(
 		"#type" => "textfield",
@@ -57,7 +56,8 @@ function highcharts_pane_edit_form($form, &$form_state) {
 	$form["csv"] = array(
 		"#type" => "managed_file",
 		"#default_value" => isset($conf["csv"]) ? $conf["csv"] : '',
-		"#title" => t("CSV"),
+		"#title" => t("Chart Data"),
+		"#description" => t("The CSV the chart data will come from. Currently csv is the only allowed extension."),
 		"#upload_location" => "public://highcharts",
 		"#upload_validators" => array(
 			"file_validate_extensions" => array("csv"),
@@ -76,7 +76,7 @@ function highcharts_pane_edit_form($form, &$form_state) {
 
 function highcharts_pane_edit_form_submit(&$form, &$form_state) {
 
-	foreach (array("chart_title", "x_axis", "y_axis", "chart_type") as $key) {
+	foreach (array("chart_title", "subtitle", "y_axis", "chart_type") as $key) {
 		$form_state["conf"][$key] = $form_state["values"][$key];
 	}
 
@@ -109,8 +109,6 @@ function highcharts_pane_edit_form_submit(&$form, &$form_state) {
 
 function highcharts_pane_render($subtype, $conf, $panel_args, $context) {
 	
-	dpm($conf);
-
 	if (!isset($conf["chart_id"])) {
 		$chartID = strtolower($conf["chart_title"]);
 		$chartID = preg_replace("/[\s-]+/", " ", $chartID);
@@ -124,7 +122,7 @@ function highcharts_pane_render($subtype, $conf, $panel_args, $context) {
 
 	$highcharts_settings = array(
 		"chartID" => $chartID,
-		"chartData" => _get_chart_data($conf),
+		"chartData" => _build_chart_data($conf),
 	);
 
 	$block = new stdClass();
@@ -141,39 +139,80 @@ function highcharts_pane_render($subtype, $conf, $panel_args, $context) {
 }
 
 
-function _get_chart_data($options) {
+function _build_chart_data($options) {
+	
+	$file = file_load($options["csv"]);
+	$file_contents = explode("\n", file_get_contents($file->uri));
 	$chart_data = array(
 		"chart" => array(
-			"type" => "bar",
 			"renderTo" => $options["chart_id"],
 		),
 		"title" => array(
 			"text" => $options["chart_title"],
 		),
-		"xAxis" => array(
-			"categories" => array(
-				"Apples",
-				"Oranges",
-				"Potatoes",
-			),
-		),
-		"yAxis" => array(
+	);
+
+	if ($options["chart_type"] != "Pie") {
+		$data = _get_normal_chart_data($file_contents);
+		$chart_data["chart"]["type"] = strtolower($options["chart_type"]);
+		$chart_data["subtitle"] = array(
+			"text" => $options["subtitle"],
+		);
+		$chart_data["xAxis"] = array(
+			"categories" => $data["categories"],
+		);
+		$chart_data["yAxis"] = array(
 			"title" => array(
 				"text" => $options["y_axis"],
 			),
-		),
-		"series" => array(
-			array(
-				"name" => "John",
-				"data" => array(0, 1, 2),
+		);
+		$chart_data["series"] = $data["series"];
+	} else {
+		$data = _get_pie_chart_data($file_contents);
+		$data["series"]["name"] = $options["y_axis"];
+		$chart_data["plotOptions"] = array(
+			"allowPointSelect" => TRUE,
+			"cursor" => "pointer",
+			"dataLabels" => array(
+				"enabled" => TRUE,
+				"format" => '<b>{point.name}</b>: {point.percentage:.1f} %',
+				"style" => array(
+					"color" => "black",
+				),
 			),
-			array(
-				"name" => "Jane",
-				"data" => array(5, 7, 3),
-			),
-		),
-	);
-
+		);
+		$chart_data["tooltip"] = array(
+			"pointFormat" => '{series.name}: <b>{point.percentage:.1f}%</b>',
+		);
+		$chart_data["series"] = $data["series"];
+	}
 	return $chart_data;
 
+}
+
+function _get_normal_chart_data($file_contents) {
+	$data = array();
+	foreach($file_contents as $line_number => $line) {
+		$contents = explode(",", $line);
+
+		if ($line_number == 0) {
+			$data["categories"] = $contents;
+		} else {
+			$data["series"][] = array(
+				"name" => $contents[0],
+				"data" => array_slice(array_map("floatval",$contents), 1),
+			);
+		}
+	}
+	return $data;
+}
+
+function _get_pie_chart_data($file_contents) {
+	$data = array();
+	foreach($file_contents as $line) {
+		$contents = explode(",", $line);
+		$data["series"]["data"][] = array($contents[0], floatval($contents[1]));
+	}
+	$data["series"]["type"] = "pie";
+	return $data;
 }
