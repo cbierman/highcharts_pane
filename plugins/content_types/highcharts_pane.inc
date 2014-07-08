@@ -20,13 +20,14 @@ $plugin = array(
  
 function highcharts_pane_edit_form($form, &$form_state) {
 
+	form_load_include($form_state, "inc", "highcharts_pane", "plugins/content_types/highcharts_pane");
 	$conf = $form_state['conf'];
-
+	dpm($conf);
 	$form["chart_title"] = array(
 		'#type' => 'textfield',
 	    '#title' => t('Chart Title'),
 	    '#description' => t("Title of the chart."),
-	    "#default_value" => $conf["chart_title"],
+	    "#default_value" => isset($conf["chart_title"]) ? $conf["chart_title"] : '',
 	);
 
 	$form["chart_type"] = array(
@@ -63,8 +64,7 @@ function highcharts_pane_edit_form($form, &$form_state) {
 		),
 
 	);
-	dpm($form);
-	dpm($form_state["conf"]);
+
 	return $form;
 }
 
@@ -79,8 +79,6 @@ function highcharts_pane_edit_form_submit(&$form, &$form_state) {
 	foreach (array("chart_title", "x_axis", "y_axis", "chart_type") as $key) {
 		$form_state["conf"][$key] = $form_state["values"][$key];
 	}
-
-	dpm($form_state["conf"]);
 
 	if ($form_state["values"]["csv"] != 0) {
 
