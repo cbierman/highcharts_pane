@@ -19,8 +19,9 @@ $plugin = array(
 );
  
 function highcharts_pane_edit_form($form, &$form_state) {
+
 	$conf = $form_state['conf'];
-	$form["#attributes"] = array('enctype' => "multipart/form-data");
+
 	$form["chart_title"] = array(
 		'#type' => 'textfield',
 	    '#title' => t('Chart Title'),
@@ -37,88 +38,104 @@ function highcharts_pane_edit_form($form, &$form_state) {
 			"Line" => "Line",
 			"Pie" => "Pie",
 		),
-		"#default_value" => $conf["chart_type"],
+		"#default_value" => isset($conf["chart_type"]) ? $conf["chart_type"] : '',
 	);
 
 	$form["x_axis"] = array(
 		"#type" => "textfield",
 		"#title" => t("X-Axis Label"),
 		"#description" => t("Label of X-Axis"),
-		"#default_value" => $conf["x_axis"],
+		"#default_value" => isset($conf["x_axis"]) ? $conf["x_axis"] : '',
 	);
 	$form["y_axis"] = array(
 		"#type" => "textfield",
 		"#title" => t("Y-Axis Label"),
 		"#description" => t("Label of Y-Axis"),
-		"#default_value" => $conf["y_axis"],
+		"#default_value" => isset($conf["y_axis"]) ? $conf["y_axis"] : '',
 	);
 	$form["csv"] = array(
-		"#type" => "file",
-		"#title" => t("Choose a file"),
-		"#default_value" => '',
-		"#size" => 60,
-		"#array_parents" => array("csv"),
+		"#type" => "managed_file",
+		"#default_value" => isset($conf["csv"]) ? $conf["csv"] : '',
+		"#title" => t("CSV"),
+		"#upload_location" => "public://highcharts",
+		"#upload_validators" => array(
+			"file_validate_extensions" => array("csv"),
+		),
 
 	);
-
-
+	dpm($form);
+	dpm($form_state["conf"]);
 	return $form;
 }
 
-function highcharts_pane_edit_form_validate($form, &$form_state) {
-	$destination = file_directory_path() . "/highcharts";
-	$file = file_save_upload("csv", array("file_validate_extensions" => array("csv")), $destination);
-	// If the file passed validation:
-	if (isset($file->filename)) {
-	      // Move the file, into the Drupal file system
-		  // $newpath = variable_get('file_directory_path');
-		if (file_move($file, $file->filename)) {
-		// Update the new file location in the database.
-	      drupal_write_record('files', $file, 'fid');
-	      // Save the file for use in the submit handler.
-	      $form_state['storage']['file'] = $file;
-	    } else {
-	      form_set_error('file', t('Failed to write the uploaded file the site\'s file folder.'));
-	    }
-	} else {
-	    form_set_error('file', t('Invalid file, only images with the extension pdf xls html doc txt are allowed'));
-	}
-}
-
+// function highcharts_pane_csv_process($element, &$form_state, $form) {
+//   $element = file_managed_file_process($element, $form_state, $form);
+//   $element['upload_button']['#access'] = FALSE;
+//   return $element;
+// }
 
 function highcharts_pane_edit_form_submit(&$form, &$form_state) {
-	dpm($form_state);
+
 	foreach (array("chart_title", "x_axis", "y_axis", "chart_type") as $key) {
 		$form_state["conf"][$key] = $form_state["values"][$key];
 	}
 
-	$file = $form_state['storage']['file'];
-  	// We are done with the file, remove it from storage.
-	unset($form_state['storage']['file']);
-	// Make the storage of the file permanent
-	file_set_status($file, FILE_STATUS_PERMANENT);
-	// Set a response to the user.
-	drupal_set_message(t('The form has been submitted and the image has been saved, filename: @filename.', array('@filename' => $file->filename)));
+	dpm($form_state["conf"]);
+
+	if ($form_state["values"]["csv"] != 0) {
+
+		// Load the file via file.fid.
+		$file = file_load($form_state['values']['csv']);
+		// Change status to permanent.
+		$file->status = FILE_STATUS_PERMANENT;
+		// Save.
+		file_save($file);
+		// Record that the module is using the file. 
+		file_usage_add($file, 'highcharts_pane', 'user', $file->uid);
+		$form_state["conf"]["csv"] = $form_state["values"]["csv"];
+		drupal_set_message(t("The file @file_name was uploaded", array("@file_name" => $file->filename,)), 'status', FALSE);
+	}
+	else if ($form_state["values"]["csv"] == 0) {
+		$fid = $form_state["conf"]["csv"];
+		$file = $fid ? file_load($fid) : FALSE;
+		if ($file) {
+			file_usage_delete($file, "highcharts_pane", 'user', $file->uid, 1);
+
+			file_delete($file);
+		}
+		$form_state["conf"]["csv"] = FALSE;
+		drupal_set_message(t("The file @file_name was removed", array("@file_name" => $file->filename)), 'status', FALSE);
+	}
+
 }
 
 function highcharts_pane_render($subtype, $conf, $panel_args, $context) {
 	
 	dpm($conf);
 
+	if (!isset($conf["chart_id"])) {
+		$chartID = strtolower($conf["chart_title"]);
+		$chartID = preg_replace("/[\s-]+/", " ", $chartID);
+	    //Convert whitespaces and underscore to dash
+	    $chartID = preg_replace("/[\s_]/", "-", $chartID);
 
-	$my_settings = array(
-		"chartID" => strtolower($conf["chart_title"]),
+	    $conf["chart_id"] = $chartID;
+	} else {
+		$chartID = $conf["chart_id"];
+	}
+
+	$highcharts_settings = array(
+		"chartID" => $chartID,
 		"chartData" => _get_chart_data($conf),
 	);
-	dpm($my_settings);
 
 	$block = new stdClass();
 	$block->title = $conf["chart_title"];
-	$block->content ="<div id='" . strtolower($conf["chart_title"]) . "'></div>";
+	$block->content ="<div id='" . $chartID . "'></div>";
 
 	libraries_load("highcharts");
 	if (($libraries = libraries_load("highcharts")) && ($libraries["loaded"])) {
-		drupal_add_js(array("highchartsPane" => $my_settings), "setting");
+		drupal_add_js(array("highchartsPane" => $highcharts_settings), "setting");
 		drupal_add_js(drupal_get_path("module", "highcharts_pane") . "/js/highcharts_pane.js");
 	}
 
@@ -130,7 +147,7 @@ function _get_chart_data($options) {
 	$chart_data = array(
 		"chart" => array(
 			"type" => "bar",
-			"renderTo" => strtolower($options["chart_title"]),
+			"renderTo" => $options["chart_id"],
 		),
 		"title" => array(
 			"text" => $options["chart_title"],

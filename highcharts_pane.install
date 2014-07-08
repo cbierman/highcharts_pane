@@ -1,0 +1,10 @@
+<?php
+
+
+function highcharts_pane_install() {
+	$file_base = variable_get('file_public_path', conf_path() . '/files');
+	$dir_created = drupal_mkdir($file_base . '/highcharts');
+	if ($dir_created == FALSE) {
+		drupal_set_message(t("The directory public://highcharts/ could not be created. Please contact you site administrator"), "warning", FALSE);
+	}
+}

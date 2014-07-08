@@ -12,6 +12,7 @@
         console.log(Drupal.settings.highchartsPane);
         $(chartID, context).once("highchartsPane", function() {
           var chart = new Highcharts.Chart(Drupal.settings.highchartsPane.chartData);
+          console.log(chart);
   			});
   		}
   	};
