@@ -37,7 +37,7 @@ function highcharts_pane_edit_form($form, &$form_state) {
 			"Bar" => "Bar",
 			"Line" => "Line",
 			"Column" => "Column",
-			"Pie" => "Pie",
+			// "Pie" => "Pie",
 		),
 		"#default_value" => isset($conf["chart_type"]) ? $conf["chart_type"] : '',
 	);
