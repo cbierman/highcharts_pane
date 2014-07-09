@@ -13,7 +13,7 @@ Highcharts Pane Module
 2. Add the highcharts pane to a panel page. It can be found under the "Charts" group.
 3. Fill out all the text fields and select your chart type
    * Currently only Bar (http://www.highcharts.com/demo/bar-basic), Line (http://www.highcharts.com/demo/line-basic), and Column (http://www.highcharts.com/demo/column-basic) are supported
-4. For the CSV field, your data should be of the format:
+4. For the CSV file, your data should be of the format:
 
 | Column 1   | Column 2   | Column 3      | etc. |
 | --------   | ---------- | ------------- | ---- |
@@ -29,5 +29,8 @@ Highcharts Pane Module
 * Still need to implement admin info
 * Currently not accessible
 ** Will be adding a table of the data to help with this
+* File isn't deleted if pane is removed, and has no usage anywhere else (Not sure if this is necissarily an issue)
+
+In the future, I plan to add more chart types
 
   
