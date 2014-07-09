@@ -28,7 +28,7 @@ Highcharts Pane Module
 * Can't have more than 1 chart in a page
 * Still need to implement admin info
 * Currently not accessible
-** Will be adding a table of the data to help with this
+  * Will be adding a table of the data to help with this
 * File isn't deleted if pane is removed, and has no usage anywhere else (Not sure if this is necissarily an issue)
 
 In the future, I plan to add more chart types
